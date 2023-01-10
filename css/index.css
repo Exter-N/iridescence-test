@@ -1,0 +1,20 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #333333;
+}
+
+#three, #app {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+}
