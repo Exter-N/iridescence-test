@@ -1,9 +1,5 @@
-import { ShaderLib, ShaderMaterial, UniformsUtils, Vector3 } from "three";
-import camera from "./camera";
+import { ShaderLib, ShaderMaterial } from "three";
 import rgbLabGlsl from "./rgb-lab.glsl";
-import { registerTickFunction } from "./tick";
-
-// (a > b) ? c : d → mix(c, d, step(a, b))
 
 const iriParsVertex = `
 varying vec3 vIriLooking;
@@ -11,19 +7,25 @@ varying vec3 vIriNormal;
 `;
 
 const iriParsFragment = `
-uniform vec3 iriUp;
 varying vec3 vIriLooking;
 varying vec3 vIriNormal;
 `;
 
 const iriVertex = `
-vIriLooking = position - cameraPosition;
+// Causes weird results when the exact looked-at pixel is right under/over the camera:
+// vIriLooking = (modelMatrix * vec4(transformed, 1.0)).xyz - cameraPosition;
+
+// Causes weird results when the model's origin is right under/over the camera; globally looks better than the previous one:
+vIriLooking = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz - cameraPosition;
+
 vIriNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
 `;
 
 const iriFragment = `
 vec3 iriNormal = normalize(vIriNormal);
 vec3 iriLooking = normalize(vIriLooking);
+vec3 iriJ = vec3(0.0, 1.0, 0.0);
+vec3 iriUp = normalize(iriJ - iriLooking * dot(iriLooking, iriJ));
 vec3 iriRight = normalize(cross(iriLooking, iriUp));
 vec3 iriNormalToCamera = normalize(vec3(dot(iriRight, iriNormal), -dot(iriUp, iriNormal), -dot(iriLooking, iriNormal)));
 vec3 iriLab = iriNormalToCamera.zxy * 50.0 + vec3(50.0, 0.0, 0.0);
@@ -257,39 +259,14 @@ void main() {
 
 }
 `;
-/*
-#include <common>
-
-${iriParsFragment}
-
-#include <shadowmap_pars_fragment>
-
-${rgbLabGlsl}
-
-void main() {
-    gl_FragColor = vec4(1.0);
-
-    ${iriFragment}
-}
-*/
 
 const material = new ShaderMaterial({
     vertexShader,
     fragmentShader,
-    uniforms: UniformsUtils.merge([
-        ShaderLib.standard.uniforms,
-        {
-            iriUp: { value: new Vector3(0, 0, 0) },
-        }
-    ]),
+    uniforms: ShaderLib.standard.uniforms,
     transparent: true,
     lights: true,
 });
-
-registerTickFunction('updateMaterialCameraUp', () => {
-    const viewMatrixInverse = camera.matrixWorld.elements;
-    material.uniforms.iriUp.value = (new Vector3(viewMatrixInverse[4], viewMatrixInverse[5], viewMatrixInverse[6])).normalize();
-}, { before: ['render'] });
 
 (window as any).uniforms = material.uniforms;
 
